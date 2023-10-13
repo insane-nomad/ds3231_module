@@ -13,6 +13,7 @@ import (
 	"github.com/jacobsa/go-serial/serial"
 )
 
+var port string
 var command string
 var mod uint
 
@@ -40,17 +41,13 @@ func saveFile(name, data string) error {
 	return sw.err // Возвращает ошибку в случае ее возникновения
 }
 
-var options serial.OpenOptions = serial.OpenOptions{
-	PortName:        "COM6",
-	BaudRate:        115200,
-	DataBits:        8,
-	StopBits:        1,
-	MinimumReadSize: 4,
-}
-
 func init() {
-	flag.StringVar(&command, "command", "", "executable command.\n\t\"set\" - to set time to module\n\t\"compare\" - to compare time and calculate ppm")
-	flag.UintVar(&mod, "mod", 0, "module number. Required value\n\nfor example\n\tmain.exe -command compare -mod 1\n\tmain.exe -command set -mod 1")
+	flag.StringVar(&port, "port", "COM6",
+		"COM port name.")
+	flag.StringVar(&command, "command", "",
+		"executable command.\n\t\"set\" - to set time to module\n\t\"compare\" - to compare time and calculate ppm")
+	flag.UintVar(&mod, "mod", 0,
+		"module number. Required value\n\nfor example\n\tmain.exe -port COM6 -command compare -mod 1\n\tmain.exe -port COM6 -command set -mod 1")
 }
 
 func connectToNTP() (timeToString, timeToFile string) {
@@ -65,7 +62,13 @@ func connectToNTP() (timeToString, timeToFile string) {
 }
 
 func readSerialData() string {
-
+	var options serial.OpenOptions = serial.OpenOptions{
+		PortName:        port,
+		BaudRate:        115200,
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 4,
+	}
 	port, err := serial.Open(options)
 	if err != nil {
 		log.Fatalf("serial.Open: %v", err)
@@ -111,7 +114,13 @@ func readSerialData() string {
 // }
 
 func writeTimeToModule(filename string) {
-
+	var options serial.OpenOptions = serial.OpenOptions{
+		PortName:        port,
+		BaudRate:        115200,
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 4,
+	}
 	// Open the port.
 	port, err := serial.Open(options)
 	if err != nil {
@@ -145,17 +154,23 @@ func writeTimeToModule(filename string) {
 				}
 				break
 			}
-			//time.Sleep(250 * time.Millisecond)
 		}
 	}
 }
 
 func main() {
+	ppmMap := make(map[string]string)
 	flag.Parse()
 
 	_, err := os.Stat("modules")
 	if os.IsNotExist(err) {
 		if err := os.Mkdir("modules", os.ModePerm); err != nil {
+			log.Fatal(err)
+		}
+	}
+	_, err = os.Stat("ppm")
+	if os.IsNotExist(err) {
+		if err := os.Mkdir("ppm", os.ModePerm); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -182,9 +197,15 @@ func main() {
 
 		fileTime, _ := time.Parse("2006-01-02 15:04:05", string(fileContents))
 		diffNTPFromFile := NTPTime.Sub(fileTime).Seconds()
-		diffNTPFromModule := NTPTime.Sub(moduleTime).Seconds()
-		accuracy := (diffNTPFromModule / diffNTPFromFile) * 1_000_000
+		diffModuleFromNTP := moduleTime.Sub(NTPTime).Seconds()
+		accuracy := (diffModuleFromNTP / diffNTPFromFile) * 1_000_000
 
+		ppmFilename := "ppm/mod" + strconv.Itoa(int(mod)) + ".txt"
+		savePpmFilename := saveFile(ppmFilename, fmt.Sprint(accuracy))
+		if savePpmFilename != nil {
+			//fmt.Println(saveFile)
+			os.Exit(1)
+		}
 		fmt.Println("\n\n+-----------------------------------------------------+")
 		fmt.Println("|\t\t   Time is compared\t\t      |")
 		fmt.Println("+-----------------------------------------------------+")
@@ -193,9 +214,24 @@ func main() {
 		fmt.Println("+-----------------------------------------------------+")
 		fmt.Println("")
 	default:
-		fmt.Println("\n\n+-----------------------------------------------------+")
-		fmt.Println("|\t\t   incorrect command\t\t      |")
-		fmt.Println("+-----------------------------------------------------+")
-		fmt.Println("")
+		//fmt.Println("\n\n+-----------------------------------------------------+")
+		//fmt.Println("|\t\t   incorrect command\t\t      |")
+		//fmt.Println("+-----------------------------------------------------+")
+		//fmt.Println("")
+		fileList, err := os.ReadDir("ppm")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, e := range fileList {
+			contents, err := os.ReadFile("ppm/" + e.Name())
+			if err != nil {
+				fmt.Println("File reading error", err)
+				return
+			}
+
+			fmt.Printf("%v - %v\n", e.Name(), string(contents))
+			ppmMap[e.Name()] = string(contents) // сохраняем в мапу и используем, где надо
+		}
 	}
 }
