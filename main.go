@@ -11,6 +11,8 @@ import (
 
 	"github.com/beevik/ntp"
 	"github.com/jacobsa/go-serial/serial"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 var port string
@@ -197,6 +199,10 @@ func main() {
 
 		fileTime, _ := time.Parse("2006-01-02 15:04:05", string(fileContents))
 		diffNTPFromFile := NTPTime.Sub(fileTime).Seconds()
+
+		p := message.NewPrinter(language.Russian)
+		seconds := p.Sprint(int64(diffNTPFromFile))
+
 		diffModuleFromNTP := moduleTime.Sub(NTPTime).Seconds()
 		accuracy := (diffModuleFromNTP / diffNTPFromFile) * 1_000_000
 
@@ -209,8 +215,8 @@ func main() {
 		fmt.Println("\n\n+-----------------------------------------------------+")
 		fmt.Println("|\t\t   Time is compared\t\t      |")
 		fmt.Println("+-----------------------------------------------------+")
-		fmt.Printf("| Time from NTP\t\t%v |\n| Time from file\t%v |\n| Time from module\t%v |\n| Sec from file time\t%-25v sec |\n| Accuracy\t\t%-25v ppm |\n",
-			NTPTime, fileTime, moduleTime, diffNTPFromFile, accuracy)
+		fmt.Printf("| Time from NTP\t\t%v |\n| Time from file\t%v |\n| Time from module\t%v |\n| Sec from file time\t%-25v sec |\n| Accuracy\t\t%-25.2f ppm |\n",
+			NTPTime, fileTime, moduleTime, seconds, accuracy)
 		fmt.Println("+-----------------------------------------------------+")
 		fmt.Println("")
 	default:
