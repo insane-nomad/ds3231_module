@@ -160,6 +160,19 @@ func writeTimeToModule(filename string) {
 	}
 }
 
+func numsToChan(nums []int) chan int {
+	ch := make(chan int)
+
+	go func() {
+		for _, v := range nums {
+			ch <- v
+		}
+		close(ch)
+	}()
+
+	return ch
+}
+
 func main() {
 	ppmMap := make(map[string]string)
 	flag.Parse()
@@ -173,6 +186,13 @@ func main() {
 	_, err = os.Stat("ppm")
 	if os.IsNotExist(err) {
 		if err := os.Mkdir("ppm", os.ModePerm); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	_, err = os.Stat("fullresult")
+	if os.IsNotExist(err) {
+		if err := os.Mkdir("fullresult", os.ModePerm); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -215,10 +235,30 @@ func main() {
 		fmt.Println("\n\n+-----------------------------------------------------+")
 		fmt.Println("|\t\t   Time is compared\t\t      |")
 		fmt.Println("+-----------------------------------------------------+")
-		fmt.Printf("| Time from NTP\t\t%v |\n| Time from file\t%v |\n| Time from module\t%v |\n| Sec from file time\t%-25v sec |\n| Accuracy\t\t%-25.2f ppm |\n",
+		fmt.Printf("| Time from NTP\t\t%v |\n| Time from file\t%v |\n| Time from module\t%v |\n| Sec from file time\t%-25v sec |\n| Accuracy\t\t%-25.3f ppm |\n",
 			NTPTime, fileTime, moduleTime, seconds, accuracy)
 		fmt.Println("+-----------------------------------------------------+")
 		fmt.Println("")
+
+		fullData := fmt.Sprintf(`
++-----------------------------------------------------+
+|			 	  Time is compared					  |
++-----------------------------------------------------+
+| Time from NTP			%v |
+| Time from file		%v |
+| Time from module		%v |
+| Sec from file time	%-25v sec |
+| Accuracy				%-25.3f ppm |
++-----------------------------------------------------+`,
+			NTPTime, fileTime, moduleTime, seconds, accuracy)
+
+		allDataFileName := "fullresult/mod" + strconv.Itoa(int(mod)) + ".txt"
+		saveAllDataFileName := saveFile(allDataFileName, fullData)
+		if saveAllDataFileName != nil {
+			//fmt.Println(saveFile)
+			os.Exit(1)
+		}
+
 	default:
 		//fmt.Println("\n\n+-----------------------------------------------------+")
 		//fmt.Println("|\t\t   incorrect command\t\t      |")
@@ -238,6 +278,7 @@ func main() {
 
 			fmt.Printf("%v - %v\n", e.Name(), string(contents))
 			ppmMap[e.Name()] = string(contents) // сохраняем в мапу и используем, где надо
+
 		}
 	}
 }
