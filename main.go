@@ -4,8 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 
@@ -173,6 +175,13 @@ func numsToChan(nums []int) chan int {
 	return ch
 }
 
+// this is the default sort order of golang ReadDir
+func SortFileNameDescend(files []fs.DirEntry) {
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].Name() > files[j].Name()
+	})
+}
+
 func main() {
 	ppmMap := make(map[string]string)
 	flag.Parse()
@@ -260,24 +269,23 @@ func main() {
 		}
 
 	default:
-		//fmt.Println("\n\n+-----------------------------------------------------+")
-		//fmt.Println("|\t\t   incorrect command\t\t      |")
-		//fmt.Println("+-----------------------------------------------------+")
-		//fmt.Println("")
+
 		fileList, err := os.ReadDir("ppm")
 		if err != nil {
 			log.Fatal(err)
 		}
+		//SortFileNameDescend(fileList)
+		//fmt.Println(fileList)
 
-		for _, e := range fileList {
-			contents, err := os.ReadFile("ppm/" + e.Name())
+		for _, file := range fileList {
+			contents, err := os.ReadFile("ppm/" + file.Name())
 			if err != nil {
 				fmt.Println("File reading error", err)
 				return
 			}
 
-			fmt.Printf("%v - %v\n", e.Name(), string(contents))
-			ppmMap[e.Name()] = string(contents) // сохраняем в мапу и используем, где надо
+			fmt.Printf("%v - %v\n", file.Name(), string(contents))
+			ppmMap[file.Name()] = string(contents) // сохраняем в мапу и используем, где надо
 
 		}
 	}
